@@ -2,6 +2,18 @@
 
 Background audio for the NakshVeda app's **Aarti mode**. Every mix is built only from CC0 sources (see [SOURCES.md](SOURCES.md)) plus self-synthesized layers. **There are no vocals or crowd sounds.**
 
+## What's new in v5 — ढोल अब साफ़ सुनाई देता है / dhol-dominant
+- **हिन्दी:** 3 शंख के तुरंत बाद ढोल अब सबसे प्रमुख ताल है — phone speaker पर भी साफ़। ढोल की अपनी lane: ज़्यादा volume, 1.5–3 kHz की "थाप", low-end saturation; ढोल की हर थाप पर घंटा/झालर थोड़े दब जाते हैं (side-chain)। नगाड़ा अब भी मज़बूत। लगातार keherwa groove। नया `mandir_preview_10s.mp3`।
+- **English:** The dhol now has its own bus:
+  - +6–10 dB relative to v4;
+  - a 1.5–3 kHz attack boost;
+  - asymmetric low-end saturation, so the bass shows up as harmonics on small speakers;
+  - bells, jhalar and the bed duck 2–3.5 dB under each dhol hit.
+  - The groove is a steady keherwa with 16th-note ghost strokes.
+  - Two more CC0 dholak recordings were added.
+  - New: `assets/previews/mandir_preview_10s.mp3`.
+- **Phone-speaker check** (200 Hz high-pass simulation, groove section): the dhol sits at −0.9 to −2.0 dB of the full mix, 7–10 dB above the bells and 4–8 dB above the nagada. In v4 it was −4.4 to −8 dB.
+
 ## हिन्दी
 - **हर preview सीधे शंख से शुरू होता है।** पहले 3 बार शंखनाद, फिर तुरंत नगाड़ा, ढोल, घंटा, मंजीरा, कर्ताल और झालर की आरती groove। शुरुआत में पहले वाला ambience अब नहीं है।
 - **8 mixes:** मंदिर (सामान्य), शिव (डमरू), गणेश, दुर्गा, हनुमान, लक्ष्मी, जगदीश, मृदंग (आदि ताल)।
@@ -21,7 +33,8 @@ Background audio for the NakshVeda app's **Aarti mode**. Every mix is built only
   - `shankh_intro` (3 blows, 6.9 s)
   - `shankh_naad` (single blow, 5.6 s)
   - `<name>_ending` (tihai plus bell tail, about 6 s)
-- `assets/previews/<name>_preview_20s.mp3`: 20 s previews (MP3 192k).
+- `assets/previews/<name>_preview_20s.mp3`: 20 s previews (MP3 192k), plus `mandir_preview_10s.mp3`.
+- `manifest_app.json`: the same data with flat `file` names and a `url` for each GitHub release asset (packs-v1).
 - Mastered to −14 LUFS integrated, true peak ≤ −1 dBTP.
 - `manifest.json` gives name, file, bytes, sha256, duration and sample count for every asset.
 

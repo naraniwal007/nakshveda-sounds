@@ -53,6 +53,7 @@ def reverb(x):
 class Mix:
     def __init__(s,T,seed=1):
         s.T=T; s.N=int((T+3)*SR); s.bus={}; s.r=np.random.default_rng(seed)
+        s.duck={'bells':-3.5,'bed':-2.0}; s.dhol_drive=6.0; s._dg=None; s.busgain={'bells':2.0}
     def _b(s,n):
         if n not in s.bus: s.bus[n]=[np.zeros((s.N,2),np.float32),np.zeros((s.N,2),np.float32)]
         return s.bus[n]
@@ -65,6 +66,13 @@ class Mix:
         a=(pan+1)*np.pi/4; L=np.cos(a)*np.sqrt(2); R=np.sin(a)*np.sqrt(2)
         y=np.empty_like(x); y[:,0]=x[:,0]*L; y[:,1]=x[:,1]*R
         d,sd=s._b(bus); d[i:i+len(y)]+=y; sd[i:i+len(y)]+=y*wet
+    def _duckgain(s,depth):
+        # v5 sidechain: envelope of the dry dhol bus (attack 2 ms, release 140 ms) ducks bells/jhalar/crash under each hit
+        if s._dg is None:
+            d=np.abs(s.bus['dhol'][0]).max(1); a=np.exp(-1/(0.002*SR)); r=np.exp(-1/(0.14*SR))
+            e=ss.lfilter([1-r],[1,-r],d)            # release smoothing
+            e=e/(np.percentile(e[e>1e-5],99) if (e>1e-5).any() else 1); s._dg=np.clip(e,0,1)
+        return (db(depth)**s._dg)[:,None].astype(np.float32)
     def render(s,wetgain=0.0,fo=1.0,only=None,drive=0.0):
         out=np.zeros((s.N,2),np.float32)
         for n,(d,sd) in s.bus.items():
@@ -72,12 +80,25 @@ class Mix:
             y=d+reverb(sd)*db(wetgain)
             if n=='drums' and drive>0:   # drum-bus soft saturation: density + harmonics for small speakers
                 k=db(drive); pk=np.abs(y).max()+1e-9; y=np.tanh(y/pk*k)/np.tanh(k)*pk
+            if n=='dhol': y=dhol_bus(y,s.dhol_drive)
+            if n in s.busgain: y=y*db(s.busgain[n])
+            if n in s.duck and 'dhol' in s.bus and (not only or 'dhol' in only or True):
+                y=y*s._duckgain(s.duck[n])
             out+=y
         out=out[:int(s.T*SR)]
         n=int(fo*SR)
         if n>0: out[-n:]*=np.linspace(1,0,n)[:,None]**1.5
         return out
 
+def dhol_bus(y,drive=6.0):
+    # v5 dhol lane: asymmetric tanh on the <250 Hz band -> 2nd/3rd harmonics (160-700 Hz) that phone speakers CAN play,
+    # plus presence boost 1.5-3 kHz for stick/hand attack.
+    lo=lp(y,250,2); hi=y-lo; k=db(drive); pk=np.abs(lo).max()+1e-9; u=lo/pk*k
+    sat=(np.tanh(u+0.25)-np.tanh(0.25))/np.tanh(k)*pk
+    sat=hp(sat,40,2)
+    z=hi+sat*1.0+0.5*hp(sat,160,2)
+    z=peq(z,2200,4.0,0.8); z=peq(z,450,2.5,1.0)
+    return z
 # ---- instrument library ----
 def lib():
     L={}
@@ -157,6 +178,16 @@ def lib():
     dK=expdecay(sl('418780',147.62,0.25,0.001,0.06),0.05); dK2=expdecay(sl('418780',144.24,0.25,0.001,0.06),0.05)
     crack=st(burst(1800,5500,0.012,0.12)); ring=st(glide(420,400,0.1,0.04,0.2))
     L['dhol3_K']=[norm(peq(hp(lay([(x,0),(crack,-3),(ring,-6)],0.25),60,2),3000,3,1.0),-19) for x in (dK,dK2)]
+    # ===== v5 dhol: real bass+treble strokes (418780 dhol, 479246 dholak, 536872 dholak bass) + reinforcement =====
+    def take(id,t0,d,tau): return expdecay(sl(id,t0,d,0.001,0.05),tau)
+    bassR=[take('418780',142.47,0.4,0.14),take('418780',144.79,0.4,0.14),take('479246',1.039,0.34,0.16),
+           take('479246',2.45,0.34,0.16),take('479246',3.86,0.34,0.16),take('536872',0.017,0.4,0.15)]
+    trebR=[take('418780',147.62,0.25,0.06),take('418780',144.24,0.25,0.06),take('479246',0.551,0.2,0.07),
+           take('479246',1.26,0.2,0.07),take('479246',2.664,0.2,0.07),take('479246',4.081,0.2,0.07)]
+    bsyn5=st(glide(140,84,0.03,0.15,0.45)); slap5=st(burst(1400,3200,0.012,0.09)); body5=st(glide(330,260,0.02,0.06,0.3))
+    L['dhol5_B']=[norm(peq(hp(lay([(x,0),(bsyn5,-3),(body5,-6),(slap5,-4)],0.45),55,2),2200,3,0.9),-15) for x in bassR]
+    crack5=st(burst(1500,3500,0.010,0.10)); ring5=st(glide(440,420,0.1,0.05,0.2))
+    L['dhol5_K']=[norm(peq(hp(lay([(x,0),(crack5,-2),(ring5,-7)],0.25),90,2),2400,3,1.0),-17) for x in trebR]
     # ===== v3 mridangam stroke library (re-sequenced from ajaysm/176272) =====
     import pickle
     st_=pickle.load(open('strokes272.pkl','rb')); x=ld('176272')

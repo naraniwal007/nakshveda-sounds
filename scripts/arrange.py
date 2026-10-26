@@ -2,18 +2,18 @@ import numpy as np, scipy.io.wavfile as w, sys
 from engine import *
 L=lib()
 # v3: drums drive the rhythm. levels in dB relative to library norm
-BASE=dict(tempo=112,nag=0,dhol=0,jhal=-1,jhal_off=-99,ghanta=0,hand=-6,chime=-99,manj=-1,kart=-3,damru=-99,
+BASE=dict(tempo=112,nag=2,dhol=5,ghost=-11,jhal=-1,jhal_off=-99,ghanta=0,hand=-6,chime=-99,manj=-1,kart=-3,damru=-99,
           tanpura=-3,bellbed=-3,shankh=0,bigsam=0,wet=0,dwet=0.05,bwet=0.45,drive=4.0)
 NAG=[('D',2),('D',-1),('T',-1),(None,0),('D',0),('D',-1),('T',-1),('T',-4)]      # dha dha dhin . dha dha dhin dhin
-KEH=[('BK',1),('B',-2),('K',-1),('k',-6),('K',-2),('k',-7),('BK',0),('K',-2)]     # keherwa: dha ge na ti | na ka dhi na
+KEH=[('BK',2),('B',-1),('K',0),('k',-4),('K',-1),('k',-4),('BK',1),('K',-1)]     # keherwa: dha ge na ti | na ka dhi na (v5: denser, louder treble)
 def dr(m,c,s,t,g,pan=0.0,ht=0.007,hv=1.2):
     if s=='D': m.put(L['nag3_D'],t,c['nag']+g,pan=pan,wet=c['dwet'],ht=ht,hv=hv,hp_=0.008,bus='drums')
     elif s=='T': m.put(L['nag3_T'],t,c['nag']+g,pan=pan,wet=c['dwet'],ht=ht,hv=hv,hp_=0.008,bus='drums')
     else:
-        r=m.r.integers(2)
-        if 'B' in s: m.put(L['dhol3_B'][r],t,c['dhol']+g,pan=-0.12,wet=c['dwet'],ht=ht,hv=hv,hp_=0.006,bus='drums')
+        nb=len(L['dhol5_B']); nk=len(L['dhol5_K'])
+        if 'B' in s: m.put(L['dhol5_B'][m.r.integers(nb)],t,c['dhol']+g,pan=-0.05,wet=c['dwet']*0.6,ht=ht*0.7,hv=hv*0.6,hp_=0.005,bus='dhol')
         if 'K' in s or 'k' in s:
-            m.put(L['dhol3_K'][r],t+0.003,c['dhol']+g+(-5 if s=='k' else 0),pan=0.12,wet=c['dwet'],ht=ht,hv=hv,hp_=0.008,bus='drums')
+            m.put(L['dhol5_K'][m.r.integers(nk)],t+0.003,c['dhol']+g+(-4 if s=='k' else 0),pan=0.08,wet=c['dwet']*0.6,ht=ht*0.7,hv=hv*0.6,hp_=0.006,bus='dhol')
 def bells(m,c,bt,k,e):
     side=1 if k%2==0 else -1
     g=L['ghanta'] if k%3!=2 else L['ghanta2']
@@ -36,6 +36,7 @@ def groove(m,c,t0,nbeats):
             s,g=NAG[i]
             if s: dr(m,c,s,bt+j*e,g+(1 if i==0 else 0))
             s,g=KEH[i]; dr(m,c,s,bt+j*e,g+acc*0.5)
+            if c['ghost']>-90 and i not in (7,): dr(m,c,'k',bt+j*e+e/2,c['ghost']+4)   # v5: 16th ghost treble keeps the groove steady
 def pickup(m,c,f0):
     # half-bar nagada/dhol roll into sam of the groove (crescendo)
     b=60/c['tempo']; e=b/2
@@ -90,6 +91,10 @@ def piece(kind,cfg={},only=None):
         T=20.0; m=Mix(T,seed=c.get('seed',5))
         te=shankh(m,c,0.02,BLOWS3); bed(m,c,te-2.4,T)
         sam=17.0; f0,_=drums_section(m,c,te-0.55,sam); damru_on(m,c,f0-0.5,sam+1.0); fo=1.6
+    elif kind=='full10':        # v5: 10 s - 3 short shankh blows, then dhol-led groove, tihai, sam
+        T=10.0; m=Mix(T,seed=c.get('seed',5)+1)
+        te=shankh(m,c,0.02,[(0.95,1.0),(0.95,0.995),(1.6,1.0)]); bed(m,c,te-1.2,T)
+        sam=8.75; f0,_=drums_section(m,c,te-0.4,sam); damru_on(m,c,f0-0.3,sam+0.8); fo=1.0
     elif kind=='mridang20': return mridang20(c)
     elif kind=='intro':         # 3 shankh blows only
         T=6.9; m=Mix(T,seed=1); shankh(m,c,0.02,BLOWS3); fo=0.5
@@ -146,17 +151,17 @@ def mridang20(c):
     mtihai(m,c,sam,p); return m.render(wetgain=c['wet'],fo=1.6,drive=c['drive'])
 MIXES={
  'mandir':dict(seed=5),
- 'shiv':dict(tempo=112,damru=0,kart=-99,dhol=-3,seed=4),
+ 'shiv':dict(tempo=112,damru=-2,kart=-99,dhol=5,seed=4),
  'ganesh':dict(tempo=108,manj=2,kart=1,seed=6),
  'durga':dict(tempo=120,nag=1.5,jhal=1,jhal_off=-4,bigsam=2,seed=7),
- 'hanuman':dict(tempo=116,dhol=1,kart=0,ghanta=-1,seed=8),
- 'lakshmi':dict(tempo=96,ghanta=-5,hand=0,chime=-3,nag=-4,dhol=-5,jhal=-5,kart=-6,tanpura=0,manj=-2,seed=9),
+ 'hanuman':dict(tempo=116,dhol=6,kart=0,ghanta=-1,seed=8),
+ 'lakshmi':dict(tempo=96,ghanta=-5,hand=0,chime=-3,nag=-4,dhol=2,jhal=-5,kart=-6,tanpura=0,manj=-2,seed=9),
  'jagdish':dict(tempo=104,ghanta=2,shankh=1,seed=10),
  'mridang':dict(tempo=147.2,mridang=3,shankh=-2,tanpura=-4,hand=-8,drive=2.0,dwet=0.06,seed=21,mr=1),
 }
 JOBS={f'{n}_preview_20s':('mridang20' if n=='mridang' else 'full20',c) for n,c in MIXES.items()}
 JOBS.update({f'{n}_ending':('ending',c) for n,c in MIXES.items()})
-JOBS['shankh_intro']=('intro',{}); JOBS['shankh_naad']=('naad',{})
+JOBS['mandir_preview_10s']=('full10',MIXES['mandir']); JOBS['shankh_intro']=('intro',{}); JOBS['shankh_naad']=('naad',{})
 if __name__=='__main__':
     import os; os.makedirs('out',exist_ok=True)
     for name in (sys.argv[1:] or JOBS):
