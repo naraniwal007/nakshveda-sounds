@@ -1,0 +1,11 @@
+scripts/wav/
+scripts/out/
+scripts/tmp/
+scripts/assets/
+__pycache__/
+*.pyc
+.env
+*.pem
+*.key
+*.jks
+*.keystore
